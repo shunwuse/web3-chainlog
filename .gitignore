@@ -1,0 +1,32 @@
+# ---- secrets / env ----
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+!.env.local.example
+
+# ---- Go ----
+backend/bin/
+backend/tmp/
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+
+# ---- Node / Next.js ----
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/next-env.d.ts
+
+# ---- Solidity / Foundry ----
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
+# ---- misc ----
+.DS_Store
+*.log
