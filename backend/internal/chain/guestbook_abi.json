@@ -1,5 +1,14 @@
 [
   {
+    "type": "function",
+    "name": "post",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "content", "type": "string" }
+    ],
+    "outputs": []
+  },
+  {
     "type": "event",
     "name": "MessagePosted",
     "anonymous": false,

@@ -4,37 +4,30 @@ package chain
 
 import (
 	"context"
-	_ "embed"
 	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/yourname/web3-chainlog/backend/internal/config"
 	"github.com/yourname/web3-chainlog/backend/internal/store"
 )
-
-//go:embed guestbook_abi.json
-var guestbookABI string
 
 // pollInterval is how often the indexer looks for new logs.
 const pollInterval = 2 * time.Second
 
 // Indexer watches MessagePosted logs and persists them through the store.
 type Indexer struct {
-	client   *ethclient.Client
-	contract common.Address
-	event    abi.Event
-	store    *store.Store
-	logger   *slog.Logger
+	*contract
+	event  abi.Event
+	store  *store.Store
+	logger *slog.Logger
 }
 
 // NewIndexer connects to the node and prepares to index the guestbook contract.
@@ -43,49 +36,18 @@ func NewIndexer(ctx context.Context, cfg *config.Config, st *store.Store, logger
 		logger = slog.Default()
 	}
 
-	client, err := ethclient.DialContext(ctx, cfg.RPCURL)
+	c, err := dialContract(ctx, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("dial %s: %w", cfg.RPCURL, err)
+		return nil, err
 	}
 
-	chainID, err := client.ChainID(ctx)
-	if err != nil {
-		client.Close()
-		return nil, fmt.Errorf("read chain id: %w", err)
-	}
-	if chainID.Int64() != cfg.ChainID {
-		client.Close()
-		return nil, fmt.Errorf("chain id mismatch: node reports %d, config says %d", chainID.Int64(), cfg.ChainID)
-	}
-
-	if !common.IsHexAddress(cfg.ContractAddress) {
-		client.Close()
-		return nil, fmt.Errorf("invalid contract address %q", cfg.ContractAddress)
-	}
-
-	parsed, err := abi.JSON(strings.NewReader(guestbookABI))
-	if err != nil {
-		client.Close()
-		return nil, fmt.Errorf("parse abi: %w", err)
-	}
-	event, ok := parsed.Events["MessagePosted"]
+	event, ok := c.abi.Events["MessagePosted"]
 	if !ok {
-		client.Close()
+		c.Close()
 		return nil, errors.New("abi has no MessagePosted event")
 	}
 
-	return &Indexer{
-		client:   client,
-		contract: common.HexToAddress(cfg.ContractAddress),
-		event:    event,
-		store:    st,
-		logger:   logger,
-	}, nil
-}
-
-// Close releases the RPC connection.
-func (i *Indexer) Close() {
-	i.client.Close()
+	return &Indexer{contract: c, event: event, store: st, logger: logger}, nil
 }
 
 // Run indexes new logs until ctx is cancelled. Transient failures are logged and
@@ -125,7 +87,7 @@ func (i *Indexer) syncOnce(ctx context.Context) error {
 	logs, err := i.client.FilterLogs(ctx, ethereum.FilterQuery{
 		FromBlock: new(big.Int).SetUint64(lastIndexed + 1),
 		ToBlock:   new(big.Int).SetUint64(latest),
-		Addresses: []common.Address{i.contract},
+		Addresses: []common.Address{i.address},
 		Topics:    [][]common.Hash{{i.event.ID}},
 	})
 	if err != nil {
