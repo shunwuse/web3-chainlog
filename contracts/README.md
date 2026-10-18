@@ -4,7 +4,7 @@ Solidity guestbook contract + Foundry tests.
 
 ## Scope
 
-The on-chain side: a minimal `Guestbook` where anyone can `post` a message and read it back. No access control, no fees. Scaffold stage — `src/Guestbook.sol` and `test/Guestbook.t.sol` are stubs.
+The on-chain side: a minimal `Guestbook` where anyone can `post` a message and read it back. No access control, no fees. Covered by Foundry tests: posting, the getters, the `MessagePosted` event, the empty-content revert, and the `getMessages` slicing rules.
 
 ## Files
 
@@ -43,6 +43,7 @@ Local:
 anvil                # chain id 31337, http://127.0.0.1:8545
 forge create --rpc-url http://127.0.0.1:8545 \
   --private-key <anvil-private-key> \
+  --broadcast \
   src/Guestbook.sol:Guestbook
 ```
 
@@ -51,8 +52,11 @@ Sepolia (testnet):
 ```bash
 forge create --rpc-url $SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY \
+  --broadcast \
   src/Guestbook.sol:Guestbook
 ```
+
+`--broadcast` is what actually sends the transaction; without it `forge create` only simulates and prints it.
 
 Deploy-time env: `SEPOLIA_RPC_URL`, `PRIVATE_KEY` (**testnet only**). This key is only used to deploy the contract; the backend's relayer key is a separate one.
 

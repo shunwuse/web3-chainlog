@@ -4,28 +4,28 @@ Go event indexer + HTTP API for the guestbook.
 
 ## Scope
 
-Watches the contract's `MessagePosted` events, stores them in SQLite, and serves them over HTTP for the frontend. Can optionally post transactions itself (relayer). Scaffold stage — all packages are stubs.
+Watches the contract's `MessagePosted` events, stores them in SQLite, and serves them over HTTP for the frontend. Can optionally post transactions itself through the `relayer` package.
 
 ## Layout
 
 - `main.go` — wires config → store → indexer → api
 - `internal/config` — config loading (`godotenv` + `os.Getenv`)
 - `internal/store` — SQLite access (`database/sql` + `modernc.org/sqlite`); `schema.sql` holds the schema
-- `internal/chain` — `indexer` (watch events) and `relayer` (send tx, testnet only)
+- `internal/chain` — the shared client, address and embedded ABI, `indexer` (watch events) and `relayer` (send tx, testnet only)
 - `internal/api` — `chi` router
 
 ## Config
 
 `backend/.env` (copy from `.env.example`):
 
-| Var | Meaning | Secret |
-| --- | --- | --- |
-| `RPC_URL` | Node endpoint (`http://127.0.0.1:8545` local, a Sepolia RPC otherwise) | no |
-| `CHAIN_ID` | `31337` Anvil, `11155111` Sepolia | no |
-| `CONTRACT_ADDRESS` | Deployed Guestbook address | no |
-| `PRIVATE_KEY` | Relayer key — **testnet only, never a funded key** | **yes** |
-| `DB_PATH` | SQLite file path (`./data.db`) | no |
-| `API_PORT` | HTTP port (`8080`) | no |
+| Var | Meaning | Required | Secret |
+| --- | --- | --- | --- |
+| `RPC_URL` | Node endpoint (`http://127.0.0.1:8545` local, a Sepolia RPC otherwise) | **yes** | no |
+| `CONTRACT_ADDRESS` | Deployed Guestbook address | **yes** | no |
+| `CHAIN_ID` | `31337` Anvil, `11155111` Sepolia | no (`31337`) | no |
+| `PRIVATE_KEY` | Relayer key — **testnet only, never a funded key** | no | **yes** |
+| `DB_PATH` | SQLite file path | no (`./data.db`) | no |
+| `API_PORT` | HTTP port | no (`8080`) | no |
 
 `.env*` is gitignored; only `.env.example` is tracked.
 

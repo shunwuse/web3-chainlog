@@ -6,7 +6,7 @@ The event indexer is written from scratch with `go-ethereum` rather than an inde
 
 ## Status
 
-Scaffold only. The layout and minimal files are in place; every implementation file is a stub (`package x`, `contract {}`, toy components). Nothing is wired yet. See **Build Order** for what to implement, in what sequence.
+Built and running locally end to end. The contract and its Foundry tests, the Go indexer + HTTP API, and the dApp (connect wallet, post, list) are all implemented, and the browser flow has been exercised against a local Anvil chain: the wallet writes, the indexer reads the log, and the list comes back from the API. The relayer exists as a package but has no entry point yet — see step 8 in **Build Order**.
 
 ## Practice Goals
 
@@ -27,7 +27,7 @@ Touch the whole Web3 write/read path yourself, one layer at a time.
 | --- | --- | --- |
 | Contract | Solidity, ABIs, events, gas | Solidity `^0.8.24` + Foundry (`forge` / `anvil` / `cast`) |
 | Backend | Go, HTTP APIs, SQL, log decoding, idempotency | Go 1.27, `chi`, `godotenv`, `database/sql` + `modernc.org/sqlite`, `go-ethereum` |
-| Frontend | Wallet connect, signing, reading a contract | Next.js (App Router, TS) + Tailwind, `wagmi` + `viem` (+ RainbowKit / shadcn/ui) |
+| Frontend | Wallet connect, signing, reading a contract | Next.js 16 (App Router, TS) + Tailwind 4, `wagmi` 3 + `viem` 2 + TanStack Query |
 | Chain | Testnets, RPC, tx lifecycle | Anvil locally, Sepolia, RPC provider (Alchemy / Infura / public) |
 | Storage | Schema, cursors, idempotency | SQLite (single file, no server) |
 
@@ -52,29 +52,32 @@ browser <--GET /api/messages-- chi API <------------------------------------+
 .
 ├── docker-compose.yml        # anvil + backend
 ├── contracts/                # Solidity + Foundry
-│   ├── foundry.toml
+│   ├── foundry.toml          # solc 0.8.24, optimizer on
 │   ├── remappings.txt        # forge-std
-│   ├── src/Guestbook.sol     # guestbook contract (stub)
-│   └── test/Guestbook.t.sol  # forge tests (stub)
+│   ├── lib/forge-std         # test dependency, pinned submodule
+│   ├── src/Guestbook.sol     # the guestbook contract
+│   └── test/Guestbook.t.sol  # forge tests
 ├── backend/                  # Go indexer + HTTP API
 │   ├── go.mod
-│   ├── main.go               # wire config -> store -> indexer -> api (stub)
+│   ├── main.go               # wires config -> store -> indexer -> api
 │   ├── Dockerfile
 │   ├── .env.example
 │   └── internal/
-│       ├── config/config.go  # godotenv + os.Getenv (stub)
-│       ├── store/store.go    # database/sql + SQLite (stub)
+│       ├── config/config.go  # godotenv + os.Getenv
+│       ├── store/store.go    # database/sql + SQLite
 │       ├── store/schema.sql  # sync_state / events / messages
-│       ├── chain/indexer.go  # ethclient: watch MessagePosted (stub)
-│       ├── chain/relayer.go  # ethclient: send tx, testnet only (stub)
-│       └── api/router.go     # chi routes (stub)
+│       ├── chain/contract.go # shared client, address, embedded ABI
+│       ├── chain/guestbook_abi.json  # the ABI the indexer decodes
+│       ├── chain/indexer.go  # ethclient: watch MessagePosted
+│       ├── chain/relayer.go  # ethclient: send tx, testnet only
+│       └── api/router.go     # chi routes
 └── frontend/                 # Next.js dApp
     ├── package.json
     ├── .env.local.example
     └── src/
-        ├── app/              # layout + page (stub)
-        ├── components/       # ConnectButton / MessageList / PostForm (stubs)
-        └── lib/              # contract address + ABI / wagmi config (stubs)
+        ├── app/              # layout, providers, page
+        ├── components/       # ConnectButton / MessageList / PostForm
+        └── lib/              # contract address + ABI / wagmi config
 ```
 
 ## Interfaces
@@ -87,33 +90,33 @@ Three seams connect the layers. Each is owned and documented by the layer that p
 
 ## Build Order
 
-Each step is runnable before the next.
+The order this repo was built in, one commit per step; each step runs before the next one is added.
 
-1. **Contract** — implement `Guestbook.sol` + `forge test` green.
+1. **Contract** — `Guestbook.sol`, `forge test` green.
 2. **Local chain** — `anvil`, deploy, post a message with `cast` to see the event.
 3. **Store** — config + SQLite schema; insert and read rows in a Go test.
 4. **Indexer** — watch `MessagePosted`, advance the cursor, prove idempotency on replay.
 5. **API** — `chi` routes reading `messages` / `sync_state`.
 6. **Frontend read** — list messages from the API.
 7. **Frontend write** — wallet connect + `post` via `wagmi`, then refresh.
-8. **Relayer (optional)** — backend-signed `post`.
+8. **Relayer (optional)** — backend-signed `post`. The package is here; nothing calls it yet.
 
 ## Quick Start
 
-Prerequisites: Go 1.27+, Foundry, Node 18+. Run the chain + backend either locally or with Docker Compose; the frontend runs on the host either way. Full steps live in each layer's README.
+Prerequisites: Go 1.27+, Foundry, Node 20.9+ (Next.js 16's floor). Run the chain + backend either locally or with Docker Compose; the frontend runs on the host either way. Full steps live in each layer's README.
 
 ### Local
 
 ```bash
-# contracts
-cd contracts && forge build && forge test         # then: anvil + forge create
+# contracts — deploy first: the backend needs the address
+cd contracts && forge build && forge test         # then: anvil + forge create --broadcast
 
 # backend
-cd backend && cp .env.example .env && go run .    # fill RPC_URL, CHAIN_ID, CONTRACT_ADDRESS
+cd backend && cp .env.example .env && go run .    # fill RPC_URL + CONTRACT_ADDRESS (CHAIN_ID defaults to 31337)
 
 # frontend
-cd frontend && cp .env.local.example .env.local   # fill NEXT_PUBLIC_API_URL, CONTRACT_ADDRESS
-npm install && npm run dev
+cd frontend && cp .env.local.example .env.local   # fill NEXT_PUBLIC_CONTRACT_ADDRESS
+npm install && npm run dev                        # then open http://localhost:3000
 ```
 
 ### Docker Compose (anvil + backend)
@@ -133,11 +136,11 @@ Details: [contracts](contracts/README.md) · [backend](backend/README.md) · [fr
 
 ## Manual Test
 
-1. **Deploy** — `anvil` in one terminal, `forge create` in another; note the address.
-2. **Index** — point the indexer at it, post a message, and confirm a row lands in SQLite and shows in `GET /api/messages`.
+1. **Deploy** — `anvil` in one terminal, `forge create --broadcast` in another; note the address.
+2. **Index** — point the indexer at it, post a message with `cast`, and confirm a row lands in SQLite and shows in `GET /api/messages`.
 3. **Idempotent** — restart the indexer mid-load; no message is duplicated.
 4. **Wallet** — post from the browser, confirm the prompt, and watch the message appear after the receipt.
-5. **Relayer (optional)** — post via the backend with a testnet key and confirm the tx lands.
+5. **Relayer (optional)** — the `relayer` package signs and sends `post` with a testnet key, but nothing calls it yet: exercise it with a small `main` or a test of your own.
 
 ## Development
 
