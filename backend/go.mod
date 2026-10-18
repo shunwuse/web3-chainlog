@@ -4,6 +4,7 @@ go 1.27.2
 
 require (
 	github.com/ethereum/go-ethereum v1.17.8
+	github.com/go-chi/chi/v5 v5.5.0
 	github.com/joho/godotenv v1.5.1
 	modernc.org/sqlite v1.60.1
 )
