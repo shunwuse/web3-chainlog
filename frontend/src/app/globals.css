@@ -1,26 +1,52 @@
 @import "tailwindcss";
 
+/* The page is meant to read as a paper guestbook: warm stock, warm-black ink,
+   hairline rules, and a single wax-seal red as the only accent. Each token is
+   a semantic slot so components never name a raw colour, and the dark palette
+   is the same idea inverted rather than a generic near-black. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #faf7f2; /* paper */
+  --foreground: #1c1917; /* ink */
+  --muted: #6a6058; /* secondary ink, still 5.6:1 on paper */
+  --rule: #e3dbcf; /* hairline rules, gutters, dividers */
+  --seal: #9c2f21; /* the one accent: stamp red */
+  --seal-tint: #f6ece7; /* the faintest wash of the accent */
+  --focus: #9c2f21;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-rule: var(--rule);
+  --color-seal: var(--seal);
+  --color-seal-tint: var(--seal-tint);
+  --color-focus: var(--focus);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #121110;
+    --foreground: #ece6dc;
+    --muted: #968c82;
+    --rule: #2b2722;
+    --seal: #dd7a63;
+    --seal-tint: #261713;
+    --focus: #dd7a63;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* One focus treatment everywhere: a visible 2px seal-coloured outline that
+   still reads on both palettes. Nothing removes it. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
