@@ -1,0 +1,13 @@
+[
+  {
+    "type": "event",
+    "name": "MessagePosted",
+    "anonymous": false,
+    "inputs": [
+      { "name": "sender", "type": "address", "indexed": true },
+      { "name": "index", "type": "uint256", "indexed": true },
+      { "name": "content", "type": "string", "indexed": false },
+      { "name": "timestamp", "type": "uint256", "indexed": false }
+    ]
+  }
+]
