@@ -134,6 +134,65 @@ cd frontend && cp .env.local.example .env.local && npm install && npm run dev
 
 Details: [contracts](contracts/README.md) · [backend](backend/README.md) · [frontend](frontend/README.md)
 
+## Wallet Setup
+
+The dApp uses whatever injected wallet the browser exposes — MetaMask, Rabby,
+Frame, or a hardware wallet's extension. There is no WalletConnect and no hosted
+wallet modal, on purpose: both need a cloud project id, and this project stays
+local and free. With no extension installed there is nothing to connect to, and
+the page says so instead of offering a dead button.
+
+### 1. Add the local chain
+
+MetaMask → **Add network → Add a network manually**:
+
+| Field | Value |
+| --- | --- |
+| Network name | Anvil |
+| RPC URL | `http://127.0.0.1:8545` |
+| Chain ID | `31337` |
+| Currency symbol | ETH |
+
+The chain ID is what keeps this a different network from mainnet, even though the
+unit is also called ETH.
+
+### 2. Fund the address with fake ETH
+
+A new wallet address holds 0 ETH on a fresh Anvil chain, so the wallet cannot pay
+gas and disables the confirm button — the usual reason a first post "does not
+work". Give yourself test money; no private key needed:
+
+```bash
+# 100 ETH of invented money (the value is hex wei). Use your own address.
+cast rpc anvil_setBalance 0xYOUR_ADDRESS 0x56BC75E2D63100000
+```
+
+The same command works whether Anvil runs on the host or in Compose, because the
+port is mapped to `localhost`.
+
+Alternatively import one of Anvil's ten pre-funded accounts: `anvil` prints their
+addresses and private keys at startup, and each holds 10,000 ETH. Those keys are
+public test keys — never send real funds to them.
+
+### 3. Expect a fee prompt, and know it is fake
+
+The confirmation shows a network fee, because a transaction really does have a
+cost. On chain `31337` that cost is paid in Anvil's ETH, which exists only inside
+your local chain: a post costs roughly `0.0001`–`0.0003` of money that is worth
+nothing. Nothing in this repo can reach real funds.
+
+On Sepolia the same prompt is paid in Sepolia test ETH from a faucet — also free.
+
+### When the wallet will not connect
+
+| Symptom | Cause |
+| --- | --- |
+| "No injected wallet detected in this browser" | No extension in this browser profile, or the dApp is open in a different browser than the one holding the wallet |
+| Connects, but the badge reads `Unsupported · 1` | The wallet sits on mainnet; use the switch buttons the dApp offers |
+| Confirm is greyed out, or the wallet reports insufficient funds | The address has 0 ETH on this chain — step 2 |
+| "The contract call could not be made" | No contract at that address on the wallet's chain, or `NEXT_PUBLIC_CONTRACT_ADDRESS` is empty |
+| Everything breaks after restarting the chain | Anvil keeps no state between runs: redeploy the contract, update the address, and clear the indexer's cursor (`backend/data.db`, or the Compose volume) so it does not resume from blocks that no longer exist |
+
 ## Manual Test
 
 1. **Deploy** — `anvil` in one terminal, `forge create --broadcast` in another; note the address.

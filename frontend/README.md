@@ -23,6 +23,8 @@ Connects an injected wallet, reads messages from the backend API, and posts new 
 
 Those two are the whole config. The chain is not set here: `src/lib/wagmi.ts` targets Sepolia (`11155111`) and Anvil (`31337`) with the injected connector — no WalletConnect project id, no cloud service.
 
+Set up a wallet (add the Anvil network, fund the address with fake ETH, and why the fee prompt is harmless): [Wallet Setup](../README.md#wallet-setup).
+
 ## Components
 
 - `ConnectButton` — connect / disconnect the injected wallet, show the active network, and offer a switch when it is not one of the two configured chains

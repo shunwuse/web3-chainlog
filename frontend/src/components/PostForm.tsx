@@ -2,8 +2,9 @@
 
 import { useEffect, useId, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { BaseError } from "viem";
+import { BaseError, formatUnits } from "viem";
 import {
+  useBalance,
   useChains,
   useConnection,
   useWaitForTransactionReceipt,
@@ -76,9 +77,17 @@ function describeError(error: unknown): string {
 }
 
 export default function PostForm() {
-  const { status, chainId } = useConnection();
+  const { status, chainId, address } = useConnection();
   const chains = useChains();
   const queryClient = useQueryClient();
+
+  // Every chain that carries a contract here is a test chain, but the two behave
+  // differently: Anvil invents its own ETH, Sepolia hands it out from a faucet.
+  const onConfiguredChain = chains.some((chain) => chain.id === chainId);
+  const activeChain = chains.find((candidate) => candidate.id === chainId);
+
+  // Disabled (address undefined) until connected to a chain the config knows.
+  const balance = useBalance({ address: onConfiguredChain ? address : undefined, chainId });
 
   const [content, setContent] = useState("");
   const fieldId = useId();
@@ -89,9 +98,29 @@ export default function PostForm() {
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
 
   const contractMissing = !CONTRACT_ADDRESS;
-  const onConfiguredChain = chains.some((chain) => chain.id === chainId);
   const tooLong = content.length > MAX_LENGTH;
   const empty = content.trim().length === 0;
+
+  // The wallet will happily open a confirmation for a transaction it cannot pay
+  // for, so say it plainly here instead of letting the prompt fail.
+  const symbol = balance.data?.symbol ?? activeChain?.nativeCurrency.symbol ?? "ETH";
+  const wei = balance.data?.value;
+  const broke = status === "connected" && onConfiguredChain && wei === BigInt(0);
+  const balanceText =
+    wei === undefined
+      ? null
+      : Number(formatUnits(wei, balance.data?.decimals ?? 18)).toLocaleString("en-US", {
+          maximumFractionDigits: 4,
+        });
+
+  // A fee prompt on a test chain is real UI around fake money. Say which kind of
+  // fake it is, or a first-time user reads it as a bill.
+  const gasMoney =
+    chainId === 31337
+      ? "Gas is paid in Anvil's test ETH — it exists only on your machine and is worth nothing, so the fee your wallet shows is not real money."
+      : chainId === 11155111
+        ? "Gas is paid in Sepolia test ETH, which comes free from a faucet. No real money."
+        : null;
 
   // react-query reports a *disabled* query as pending, so receipt.isPending is
   // true before a hash exists; isLoading only when a receipt is actually awaited.
@@ -155,6 +184,40 @@ export default function PostForm() {
         </h2>
         <p className="font-mono text-[11px] text-muted">posts a transaction on-chain</p>
       </div>
+
+      {status === "connected" && onConfiguredChain ? (
+        <div className="mt-3">
+          {broke ? (
+            <div className="border-l-2 border-seal bg-seal-tint px-3 py-2.5">
+              <p className="text-xs leading-relaxed text-foreground">
+                <span className="font-mono">
+                  0 {symbol}
+                </span>{" "}
+                on this network, so there is nothing to pay gas with and the wallet
+                will refuse to sign.
+                {chainId === 31337
+                  ? " Anvil money is free — fund this address from a terminal:"
+                  : " Get free test ETH from a Sepolia faucet, then try again."}
+              </p>
+              {chainId === 31337 && address ? (
+                <code className="mt-2 block overflow-x-auto rounded-sm bg-background px-2 py-1.5 font-mono text-[11px] whitespace-nowrap">
+                  cast rpc anvil_setBalance {address} 0x56BC75E2D63100000
+                </code>
+              ) : null}
+            </div>
+          ) : gasMoney ? (
+            <p className="text-xs leading-relaxed text-muted">
+              {balanceText ? (
+                <span className="font-mono text-foreground">
+                  {balanceText} {symbol}
+                </span>
+              ) : null}
+              {balanceText ? " · " : null}
+              {gasMoney}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <form
         className="mt-5"
