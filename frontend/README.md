@@ -19,7 +19,7 @@ Connects an injected wallet, reads messages from the backend API, and posts new 
 | Var | Meaning |
 | --- | --- |
 | `NEXT_PUBLIC_API_URL` | Backend base URL (`http://localhost:8080`) |
-| `NEXT_PUBLIC_CONTRACT_ADDRESS` | Deployed Guestbook address |
+| `NEXT_PUBLIC_CONTRACT_ADDRESS` | Deployed Guestbook address — must equal the backend's `CONTRACT_ADDRESS` |
 
 Those two are the whole config. The chain is not set here: `src/lib/wagmi.ts` targets Sepolia (`11155111`) and Anvil (`31337`) with the injected connector — no WalletConnect project id, no cloud service.
 
@@ -29,7 +29,7 @@ Set up a wallet (add the Anvil network, fund the address with fake ETH, and why 
 
 - `ConnectButton` — connect / disconnect the injected wallet, show the active network, and offer a switch when it is not one of the two configured chains
 - `MessageList` — fetch `GET /api/messages` and render the log, with loading / empty / error states and a manual refresh
-- `PostForm` — sign `post(content)` via `wagmi`, wait for the receipt, then refresh the list
+- `PostForm` — show the connected balance and say plainly that a test-chain fee is not real money, sign `post(content)` via `wagmi`, then refresh the list once the receipt lands
 
 ## Integration
 
@@ -41,7 +41,7 @@ Set up a wallet (add the Anvil network, fund the address with fake ETH, and why 
 The frontend runs on the host (not containerized). It needs the backend running for the list; connect a wallet to post.
 
 ```bash
-cp .env.local.example .env.local   # set NEXT_PUBLIC_CONTRACT_ADDRESS
+cp -n .env.local.example .env.local   # set NEXT_PUBLIC_CONTRACT_ADDRESS
 npm install
 npm run dev                        # http://localhost:3000
 npm run lint

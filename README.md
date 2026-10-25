@@ -107,32 +107,72 @@ Prerequisites: Go 1.27+, Foundry, Node 20.9+ (Next.js 16's floor). Run the chain
 
 ### Local
 
+Each block runs from the repo root, in its own terminal.
+
 ```bash
-# contracts — deploy first: the backend needs the address
-cd contracts && forge build && forge test         # then: anvil + forge create --broadcast
+# 1. contracts — deploy first: the backend needs the address
+(cd contracts && forge build && forge test)
+# then: anvil in one terminal, and `forge create --broadcast` (see contracts/README.md)
 
-# backend
-cd backend && cp .env.example .env && go run .    # fill RPC_URL + CONTRACT_ADDRESS (CHAIN_ID defaults to 31337)
+# 2. backend — fill CONTRACT_ADDRESS before starting
+(cd backend && cp -n .env.example .env && go run .)
 
-# frontend
-cd frontend && cp .env.local.example .env.local   # fill NEXT_PUBLIC_CONTRACT_ADDRESS
-npm install && npm run dev                        # then open http://localhost:3000
+# 3. frontend
+(cd frontend && cp -n .env.local.example .env.local && npm install && npm run dev)
 ```
+
+`cp -n` never overwrites an existing file, so re-running a block cannot wipe an address you already set.
 
 ### Docker Compose (anvil + backend)
 
 ```bash
-cp backend/.env.example backend/.env              # fill CONTRACT_ADDRESS after deploy
+cp -n backend/.env.example backend/.env           # CONTRACT_ADDRESS is filled in after the deploy
 docker compose up --build                         # anvil on :8545, backend on :8080
 ```
 
-Then deploy the contract from the host (see [contracts/README.md](contracts/README.md)), put the address in `backend/.env`, and restart the backend. The frontend still runs on the host:
+Then deploy the contract from the host (see [contracts/README.md](contracts/README.md)), put the address in `backend/.env`, and recreate the backend so it reads the new value:
 
 ```bash
-cd frontend && cp .env.local.example .env.local && npm install && npm run dev
+docker compose up -d --force-recreate backend
+```
+
+The frontend still runs on the host:
+
+```bash
+cd frontend && cp -n .env.local.example .env.local && npm install && npm run dev
 ```
 
 Details: [contracts](contracts/README.md) · [backend](backend/README.md) · [frontend](frontend/README.md)
+
+## Configure
+
+Two `.env` files, and exactly one value that has to be looked up.
+
+| Value | Where it comes from | File |
+| --- | --- | --- |
+| `CONTRACT_ADDRESS`, `NEXT_PUBLIC_CONTRACT_ADDRESS` | the `Deployed to:` line printed by `forge create` | **both** |
+| `RPC_URL` | `http://127.0.0.1:8545` for a local anvil, a Sepolia endpoint otherwise | backend |
+| `CHAIN_ID` | `31337` Anvil, `11155111` Sepolia (defaults to `31337`) | backend |
+| `PRIVATE_KEY` | leave empty; only the optional relayer signs with it. The deploy key in [contracts/README.md](contracts/README.md) reuses the name but is a different value | backend |
+| `DB_PATH`, `API_PORT` | defaults are fine | backend |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8080` | frontend |
+
+Three rules that are easy to get wrong:
+
+1. **The two address values must be identical.** The backend indexes that address,
+   the frontend writes to it. When they differ the page still accepts a post, the
+   wallet still reports success, and the list stays empty: a transaction sent to
+   an address with no code is a valid transfer that runs nothing.
+2. **The backend exits while `CONTRACT_ADDRESS` is empty.** In Compose that looks
+   like a backend that dies on the first `up` — deploy, set the value, then
+   `docker compose up -d --force-recreate backend`.
+3. **Both files are read at start-up**, so a change needs a restart: the frontend
+   dev server (`Ctrl-C`, `npm run dev`) and the backend container
+   (`--force-recreate`).
+
+Under Compose, `RPC_URL` is overridden to `http://anvil:8545` and `DB_PATH` to
+`/data/data.db` in a named volume, so those two lines in `backend/.env` do not
+apply — the address still does.
 
 ## Wallet Setup
 
@@ -203,12 +243,12 @@ On Sepolia the same prompt is paid in Sepolia test ETH from a faucet — also fr
 
 ## Development
 
-Run the full suite across all three layers:
+Run the full suite across all three layers, from the repo root:
 
 ```bash
-cd contracts && forge build && forge test
-cd backend && go vet ./... && go test ./...
-cd frontend && npm run lint && npm run build
+(cd contracts && forge build && forge test)
+(cd backend && go vet ./... && go test ./...)
+(cd frontend && npm run lint && npm run build)
 ```
 
 ## Out of scope

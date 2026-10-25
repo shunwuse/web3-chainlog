@@ -56,6 +56,10 @@ forge create --rpc-url $SEPOLIA_RPC_URL \
   src/Guestbook.sol:Guestbook
 ```
 
+Both commands print `Deployed to: 0x…`. That address is the one `CONTRACT_ADDRESS`
+(backend) and `NEXT_PUBLIC_CONTRACT_ADDRESS` (frontend) must both hold — see
+[Configure](../README.md#configure).
+
 `--broadcast` is what actually sends the transaction; without it `forge create` only simulates and prints it.
 
 Deploy-time env: `SEPOLIA_RPC_URL`, `PRIVATE_KEY` (**testnet only**). This key is only used to deploy the contract; the backend's relayer key is a separate one.
